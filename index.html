@@ -411,6 +411,15 @@ body{height:100%;height:100dvh;background:#1a1a2e;font-family:'Noto Sans SC',san
         </label>
       </div>
       <button class="m-save" onclick="saveGlobalSettings()">保 存 配 置</button>
+      <div style="margin-top:16px;border-top:1px solid rgba(var(--theme-deep-rgb),.15);padding-top:14px;">
+        <div class="m-label" style="margin-bottom:10px;font-size:12px;letter-spacing:.5px;">📦 数据备份与迁移</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="exportData()" style="flex:1;padding:10px;border-radius:11px;border:1.5px solid rgba(var(--theme-deep-rgb),.3);background:rgba(255,255,255,.7);color:var(--text);font-size:12px;cursor:pointer;font-family:'Noto Sans SC',sans-serif;transition:all .2s;">⬇️ 导出数据</button>
+          <button onclick="document.getElementById('importFile').click()" style="flex:1;padding:10px;border-radius:11px;border:1.5px solid rgba(var(--theme-deep-rgb),.3);background:rgba(255,255,255,.7);color:var(--text);font-size:12px;cursor:pointer;font-family:'Noto Sans SC',sans-serif;transition:all .2s;">⬆️ 导入数据</button>
+        </div>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
+        <div style="font-size:10px;color:var(--text-light);margin-top:8px;line-height:1.7;">导出后可保存备份，换设备时重新导入恢复所有账本和设置</div>
+      </div>
     </div>
   </div>
 
@@ -1196,6 +1205,46 @@ function saveGlobalSettings(){
   const modelVal=document.getElementById('apiModel').value;
   if(urlVal)g.apiUrl=urlVal;if(keyVal&&!keyVal.startsWith('•'))g.apiKey=keyVal;if(modelVal)g.apiModel=modelVal;
   setGlobal(g);closeModal('settingsModal');showToast('✅ 配置已保存');
+}
+
+function exportData(){
+  const allBooks=getBooks();
+  const data={
+    version:1,
+    exportedAt:new Date().toISOString(),
+    global:getGlobal(),
+    persona:getPersona(),
+    books:allBooks,
+    bookData:{}
+  };
+  allBooks.forEach(b=>{data.bookData[b.id]=getBookData(b.id);});
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='招财进喵_备份_'+new Date().toLocaleDateString('zh').replace(/\//g,'-')+'.json';
+  a.click();URL.revokeObjectURL(url);
+  showToast('✅ 数据已导出');
+}
+
+function importData(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!data.books||!data.bookData){showToast('❗ 文件格式不对');return;}
+      if(!confirm(`确定导入？将会覆盖现有的 ${data.books.length} 个账本数据`))return;
+      if(data.global)setGlobal(data.global);
+      if(data.persona)setPersona(data.persona);
+      if(data.books)setBooks(data.books);
+      Object.entries(data.bookData).forEach(([id,bd])=>setBookData(id,bd));
+      loadGlobalUI();loadPersonaUI();renderBookList();
+      closeModal('settingsModal');
+      showToast(`✅ 导入成功！共 ${data.books.length} 个账本`);
+    }catch{showToast('❗ 导入失败，文件损坏');}
+  };
+  reader.readAsText(file);
+  input.value='';
 }
 
 function openModal(id){document.getElementById(id).classList.add('show');}
