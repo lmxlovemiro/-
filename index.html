@@ -539,6 +539,33 @@ function init(){
   document.querySelectorAll('.overlay,.deposit-overlay,.edit-overlay').forEach(o=>{
     o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show');});
   });
+  initKeyboardFix();
+}
+
+function initKeyboardFix(){
+  // 用 visualViewport 监听软键盘，把内容顶上去
+  if(!window.visualViewport)return;
+  const shell=document.getElementById('phoneShell');
+  const wrap=document.getElementById('phoneWrap');
+  function onViewportChange(){
+    const vv=window.visualViewport;
+    const isNoShell=wrap.classList.contains('no-shell');
+    if(isNoShell){
+      // 全屏模式：直接设高度为可视区域高度，并偏移offsetTop
+      shell.style.height=vv.height+'px';
+      shell.style.transform=`translateY(${vv.offsetTop}px)`;
+    } else {
+      // 手机壳模式：键盘弹出时重新缩放
+      scalePhone();
+      // 滚动输入框到视野内
+      const focused=document.activeElement;
+      if(focused&&(focused.tagName==='INPUT'||focused.tagName==='TEXTAREA')){
+        setTimeout(()=>focused.scrollIntoView({block:'nearest',behavior:'smooth'}),100);
+      }
+    }
+  }
+  window.visualViewport.addEventListener('resize',onViewportChange);
+  window.visualViewport.addEventListener('scroll',onViewportChange);
 }
 
 function scalePhone(){
